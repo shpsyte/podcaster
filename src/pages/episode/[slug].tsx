@@ -2,10 +2,12 @@ import { format, parseISO } from 'date-fns';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import React from 'react';
+import React, { useContext } from 'react';
 import { api } from '../../services/axios';
 import { convertDuationToTimeString } from '../../utils/convertDuationToTimeString';
 import styles from './episode.module.scss';
+import { usePlayer } from '../../contexts/PlayerContext';
+import Head from 'next/head';
 
 type Episode = {
   id: string;
@@ -24,13 +26,27 @@ type EpisodeProps = {
 };
 
 export default function Episode({ episode }: EpisodeProps) {
+  const { play } = usePlayer();
+
   return (
     <div className={styles.episode}>
+      <Head>
+        <title>{episode.title}</title>
+        <meta name="title" content={episode.title} />
+        <meta name="description" content={episode.description} />
+
+        <meta property="og:image" content={episode.thumbnail} />
+
+        <meta property="twitter:card" content={episode.thumbnail} />
+        <meta property="twitter:title" content={episode.title} />
+        <meta property="twitter:description" content={episode.description} />
+        <meta property="twitter:image" content={episode.thumbnail} />
+      </Head>
       <div className={styles.thumbnailContainer}>
-        <Link href='/'>
-        <button type="button">
-          <img src="/arrow-left.svg" />
-        </button>
+        <Link href="/">
+          <button type="button">
+            <img src="/arrow-left.svg" />
+          </button>
         </Link>
         <Image
           width={700}
@@ -39,7 +55,7 @@ export default function Episode({ episode }: EpisodeProps) {
           alt={episode.title}
           objectFit="cover"
         />
-        <button type="button">
+        <button type="button" onClick={() => play(episode)}>
           <img src="/play.svg" />
         </button>
       </div>
@@ -57,8 +73,22 @@ export default function Episode({ episode }: EpisodeProps) {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
+  const { data } = await api.get('episodes', {
+    params: {
+      _limit: 2,
+      _sort: 'published_at',
+      _order: 'desc',
+    },
+  });
+  const paths = data.map(episode => {
+    return {
+      params: {
+        slug: episode.id,
+      },
+    };
+  });
   return {
-    paths: [],
+    paths: paths,
     fallback: 'blocking',
   };
 };
@@ -66,8 +96,6 @@ export const getStaticPaths: GetStaticPaths = async () => {
 export const getStaticProps: GetStaticProps = async ctx => {
   const { slug } = ctx.params;
   const { data } = await api.get(`/episodes/${slug}`);
-
-  // console.log('data', data)
 
   const episode = {
     id: data.id,
